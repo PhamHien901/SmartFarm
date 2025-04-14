@@ -18,8 +18,12 @@ def run_training_and_forecast():
     # ======= KẾT NỐI GOOGLE SHEETS =========
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     service_json = os.environ.get("GOOGLE_SERVICE_KEY")
-    creds = ServiceAccountCredentials.from_json_keyfile_name(
-        io.StringIO(service_json), scope)
+
+    # Ghi tạm ra file JSON để dùng với from_json_keyfile_name
+    with open("temp_key.json", "w") as f:
+        f.write(service_json)
+
+    creds = ServiceAccountCredentials.from_json_keyfile_name("temp_key.json", scope)
     client = gspread.authorize(creds)
 
     sheet_url = "https://docs.google.com/spreadsheets/d/19qBwHPrIes6PeGAyIzMORPVB-7utQpaZG7RHrdRfoNI/edit#gid=0"
