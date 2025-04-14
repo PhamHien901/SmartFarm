@@ -1,6 +1,5 @@
 from flask import Flask, jsonify
-import threading
-import time
+from apscheduler.schedulers.background import BackgroundScheduler
 import pandas as pd
 import numpy as np
 import json
@@ -138,14 +137,15 @@ def get_prediction():
         return jsonify({"error": str(e)}), 500
 
 
-def auto_loop():
-    while True:
-        print(f"🕒 Bắt đầu lúc {datetime.now().strftime('%H:%M:%S %d/%m/%Y')}")
-        run_training_and_forecast()
-        print("🛌 Đợi 10 phút\n")
-        time.sleep(600)
+# ======= KHỞI TẠO SCHEDULER =========
+def start_scheduler():
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(run_training_and_forecast, 'interval', minutes=10)
+    scheduler.start()
+    print("🌀 Scheduler đang chạy mỗi 10 phút...")
 
 
 if __name__ == '__main__':
-    threading.Thread(target=auto_loop, daemon=True).start()
+    start_scheduler()
+    run_training_and_forecast()  # chạy ngay lần đầu tiên
     app.run(host='0.0.0.0', port=8080)
