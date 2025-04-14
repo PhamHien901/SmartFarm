@@ -13,12 +13,13 @@ from tensorflow.keras.losses import MeanSquaredError
 from datetime import datetime, timedelta
 import firebase_admin
 from firebase_admin import credentials, db
-
+import io
 def run_training_and_forecast():
     # ======= KẾT NỐI GOOGLE SHEETS =========
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    service_json = os.environ.get("GOOGLE_SERVICE_KEY")
     creds = ServiceAccountCredentials.from_json_keyfile_name(
-        "focal-grin-455408-m0-c0013e6015d9.json", scope)
+        io.StringIO(service_json), scope)
     client = gspread.authorize(creds)
 
     sheet_url = "https://docs.google.com/spreadsheets/d/19qBwHPrIes6PeGAyIzMORPVB-7utQpaZG7RHrdRfoNI/edit#gid=0"
