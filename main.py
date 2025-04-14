@@ -93,7 +93,12 @@ def run_training_and_forecast():
 
     # ======= ĐẨY LÊN FIREBASE =========
     if not firebase_admin._apps:
-        cred = credentials.Certificate("smart-farm-6e42d-firebase-adminsdk-fbsvc-9f6b7c2379.json")
+        firebase_json = os.environ.get("FIREBASE_SERVICE_KEY")
+
+        with open("temp_firebase_key.json", "w") as f:
+            f.write(firebase_json)
+
+        cred = credentials.Certificate("temp_firebase_key.json")
         firebase_admin.initialize_app(cred, {
             'databaseURL': 'https://smart-farm-6e42d-default-rtdb.firebaseio.com/'
         })
