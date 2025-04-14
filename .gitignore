@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.env
+smart-farm-6e42d-firebase-adminsdk-fbsvc-9f6b7c2379.json
+focal-grin-455408-m0-c0013e6015d9.json

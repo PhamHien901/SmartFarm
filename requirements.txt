@@ -1,0 +1,7 @@
+gspread
+oauth2client
+firebase-admin
+pandas
+numpy
+scikit-learn
+tensorflow==2.12.0
