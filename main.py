@@ -5,22 +5,33 @@ import os
 from datetime import datetime, timedelta
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import GRU, Dense
+from tensorflow.keras.layers import GRU, Dense, Input
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.losses import MeanSquaredError
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import firebase_admin
 from firebase_admin import credentials, db
+from flask import Flask
+from apscheduler.schedulers.background import BackgroundScheduler
+
+# Dummy Flask app để giữ Web Service hoạt động
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    return "✅ GRU Auto-Training is running on Render (Web Service Plan)."
 
 def run_training_and_forecast():
+    print("🔁 Bắt đầu kiểm tra và huấn luyện...")
+
     # ======= GOOGLE SHEET =========
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     google_key = os.environ.get("GOOGLE_SERVICE_KEY")
     creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(google_key), scope)
     client = gspread.authorize(creds)
 
-    sheet_url = "https://docs.google.com/spreadsheets/d/19qBwHPrIes6PeGAyIzMORPVB-7utQpaZG7RHrdRfoNI/edit#gid=0"
+    sheet_url = "https://docs.google.com/spreadsheets/d/19qBwHPrIes6PeGAyIzMORPVB-7utQpaZG7RHrdRfoNI"
     sheet = client.open_by_url(sheet_url)
     worksheet = sheet.worksheet("DATA")
     data = pd.DataFrame(worksheet.get_all_records())
@@ -49,20 +60,21 @@ def run_training_and_forecast():
     scaler = MinMaxScaler()
     scaled_data = scaler.fit_transform(dataset)
 
-    model_path = "gru_weather_model.keras"
+    model_path = "gru_weather_model.h5"
     window_size = 6
 
     # ======= TẠO HOẶC LOAD MODEL ========
     if not os.path.exists(model_path):
-        print("⚠️ Chưa có mô hình .keras, tạo mới từ đầu.")
+        print("⚠️ Chưa có mô hình .h5, tạo mới từ đầu.")
         model = Sequential([
-            GRU(units=64, return_sequences=False, input_shape=(window_size, len(features))),
+            Input(shape=(window_size, len(features))),
+            GRU(units=64),
             Dense(5)
         ])
         model.compile(optimizer='adam', loss=MeanSquaredError())
         model.save(model_path)
     else:
-        print("✅ Đã có mô hình .keras, tiến hành load...")
+        print("✅ Đã có mô hình .h5, tiến hành load...")
         model = load_model(model_path, compile=False)
         model.compile(optimizer='adam', loss=MeanSquaredError())
 
@@ -122,11 +134,12 @@ def run_training_and_forecast():
         json.dump({"last_timestamp": str(latest_timestamp)}, f)
     print("✅ Đã huấn luyện xong.")
 
-# ======= CHẠY TỰ ĐỘNG MỖI 10 PHÚT =========
+
+# ========== CHẠY FLASK + SCHEDULER ==========
 if __name__ == '__main__':
-    from apscheduler.schedulers.blocking import BlockingScheduler
-    scheduler = BlockingScheduler()
+    scheduler = BackgroundScheduler()
     scheduler.add_job(run_training_and_forecast, 'interval', minutes=10)
+    scheduler.start()
     print("🌀 Đang chạy script tự động mỗi 10 phút...")
     run_training_and_forecast()  # chạy ngay lần đầu tiên
-    scheduler.start()
+    app.run(host="0.0.0.0", port=8080)
