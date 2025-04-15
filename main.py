@@ -49,12 +49,12 @@ def run_training_and_forecast():
     scaler = MinMaxScaler()
     scaled_data = scaler.fit_transform(dataset)
 
-    model_path = "gru_weather_model.h5"
+    model_path = "gru_weather_model.keras"
     window_size = 6
 
     # ======= TẠO HOẶC LOAD MODEL ========
     if not os.path.exists(model_path):
-        print("⚠️ Chưa có mô hình .h5, tạo mới từ đầu.")
+        print("⚠️ Chưa có mô hình .keras, tạo mới từ đầu.")
         model = Sequential([
             GRU(units=64, return_sequences=False, input_shape=(window_size, len(features))),
             Dense(5)
@@ -62,7 +62,7 @@ def run_training_and_forecast():
         model.compile(optimizer='adam', loss=MeanSquaredError())
         model.save(model_path)
     else:
-        print("✅ Đã có mô hình .h5, tiến hành load...")
+        print("✅ Đã có mô hình .keras, tiến hành load...")
         model = load_model(model_path, compile=False)
         model.compile(optimizer='adam', loss=MeanSquaredError())
 
@@ -121,7 +121,6 @@ def run_training_and_forecast():
     with open("last_timestamp.json", "w") as f:
         json.dump({"last_timestamp": str(latest_timestamp)}, f)
     print("✅ Đã huấn luyện xong.")
-
 
 # ======= CHẠY TỰ ĐỘNG MỖI 10 PHÚT =========
 if __name__ == '__main__':
