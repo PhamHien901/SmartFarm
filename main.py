@@ -15,18 +15,17 @@ import firebase_admin
 from firebase_admin import credentials, db
 
 def run_training_and_forecast():
-    # ======= GOOGLE SHEET =========
+    print("🔄 Bắt đầu kiểm tra và huấn luyện...")
+    # === Kết nối Google Sheets ===
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     google_key = os.environ.get("GOOGLE_SERVICE_KEY")
     creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(google_key), scope)
     client = gspread.authorize(creds)
 
-    sheet_url = "https://docs.google.com/spreadsheets/d/19qBwHPrIes6PeGAyIzMORPVB-7utQpaZG7RHrdRfoNI/edit#gid=0"
-    sheet = client.open_by_url(sheet_url)
-    worksheet = sheet.worksheet("DATA")
+    sheet_url = "https://docs.google.com/spreadsheets/d/19qBwHPrIes6PeGAyIzMORPVB-7utQpaZG7RHrdRfoNI"
+    worksheet = client.open_by_url(sheet_url).worksheet("DATA")
     data = pd.DataFrame(worksheet.get_all_records())
 
-    # ======= TIỀN XỬ LÝ =========
     data['timestamp'] = pd.to_datetime(data['NGÀY'] + ' ' + data['GIỜ'], format='%d/%m/%Y %H:%M:%S')
     data = data.sort_values('timestamp')
     data.rename(columns={
@@ -37,34 +36,35 @@ def run_training_and_forecast():
         'rain': 'rain'
     }, inplace=True)
 
-    # ======= CHECK TIMESTAMP =========
+    # Kiểm tra timestamp mới
     saved_timestamp = None
     if os.path.exists("last_timestamp.json"):
         with open("last_timestamp.json", "r") as f:
             saved_timestamp = pd.to_datetime(json.load(f)["last_timestamp"])
     latest_timestamp = data['timestamp'].iloc[-1]
 
-    # ======= CHUẨN HÓA =========
+    # Chuẩn hóa
     features = ['temp', 'humid', 'soil', 'wind', 'rain']
     dataset = data[features].copy()
     scaler = MinMaxScaler()
     scaled_data = scaler.fit_transform(dataset)
 
-    model_path = "gru_weather_model.h5"
+    model_path = "gru_weather_model.keras"
     window_size = 6
 
     if not os.path.exists(model_path):
-        print("⚠️ Chưa có mô hình, sẽ tạo mới.")
-        model = Sequential()
-        model.add(GRU(units=64, return_sequences=False, input_shape=(window_size, len(features))))
-        model.add(Dense(5))
+        print("⚠️ Chưa có mô hình, tạo mới...")
+        model = Sequential([
+            GRU(units=64, return_sequences=False, input_shape=(window_size, len(features))),
+            Dense(5)
+        ])
         model.compile(optimizer='adam', loss=MeanSquaredError())
         model.save(model_path)
     else:
         model = load_model(model_path, compile=False)
         model.compile(optimizer='adam', loss=MeanSquaredError())
 
-    # ======= DỰ BÁO =========
+    # Dự báo 25 bước tiếp theo
     n_steps = 25
     forecast = []
     current_seq = scaled_data[-window_size:].copy()
@@ -83,34 +83,29 @@ def run_training_and_forecast():
     forecast_df.insert(0, "time", [(base_time_tomorrow + timedelta(hours=i)).strftime("%d/%m/%Y %H:%M") for i in range(n_steps)])
 
     forecast_df.to_json("latest_prediction.json", orient="records", indent=2)
-    print("📤 Đã lưu latest_prediction.json")
+    print("📄 Đã lưu latest_prediction.json")
 
-    # ======= FIREBASE =========
+    # Kết nối Firebase
     if not firebase_admin._apps:
         firebase_key = os.environ.get("FIREBASE_SERVICE_KEY")
-        if not firebase_key:
-            raise ValueError("FIREBASE_SERVICE_KEY không tồn tại trong biến môi trường!")
         cred = credentials.Certificate(json.loads(firebase_key))
         firebase_admin.initialize_app(cred, {
             'databaseURL': 'https://smart-farm-6e42d-default-rtdb.firebaseio.com/'
         })
 
-    ref = db.reference("forecast/tomorrow")
-    ref.set(forecast_df.to_dict(orient="records"))
-    print("🔥 Đã đẩy dữ liệu lên Firebase")
+    db.reference("forecast/tomorrow").set(forecast_df.to_dict(orient="records"))
+    print("🔥 Đã cập nhật Firebase")
 
-    # ======= HUẤN LUYỆN =========
     if saved_timestamp is not None and latest_timestamp <= saved_timestamp:
-        print("🟡 Không có dữ liệu mới.")
+        print("🟡 Không có dữ liệu mới, bỏ qua huấn luyện.")
         return
 
-    print("🟢 Có dữ liệu mới. Đang huấn luyện...")
+    print("🟢 Có dữ liệu mới, huấn luyện tiếp...")
     X, y = [], []
     for i in range(len(scaled_data) - window_size):
         X.append(scaled_data[i:i + window_size])
         y.append(scaled_data[i + window_size])
-    X = np.array(X)
-    y = np.array(y)
+    X, y = np.array(X), np.array(y)
 
     early_stop = EarlyStopping(monitor='loss', patience=5, restore_best_weights=True)
     model.fit(X, y, epochs=100, batch_size=16, callbacks=[early_stop], verbose=0)
@@ -118,20 +113,10 @@ def run_training_and_forecast():
 
     with open("last_timestamp.json", "w") as f:
         json.dump({"last_timestamp": str(latest_timestamp)}, f)
-    print("✅ Đã huấn luyện xong.")
+    print("✅ Đã huấn luyện xong\n")
 
-
-# ======= VÒNG LẶP TỰ ĐỘNG =========
-def auto_loop():
+# ====== VÒNG LẶP CHÍNH ======
+if __name__ == "__main__":
     while True:
-        print(f"🕒 Chạy lúc {datetime.now().strftime('%H:%M:%S %d/%m/%Y')}")
-        try:
-            run_training_and_forecast()
-        except Exception as e:
-            print(f"❌ Lỗi: {e}")
-        print("🛌 Đợi 10 phút\n")
-        time.sleep(600)
-
-
-if __name__ == '__main__':
-    auto_loop()
+        run_training_and_forecast()
+        time.sleep(600)  # 10 phút
