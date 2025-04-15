@@ -1,5 +1,4 @@
-from flask import Flask, jsonify
-from apscheduler.schedulers.background import BackgroundScheduler
+import time
 import pandas as pd
 import numpy as np
 import json
@@ -14,9 +13,6 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import firebase_admin
 from firebase_admin import credentials, db
-
-app = Flask(__name__)
-
 
 def run_training_and_forecast():
     # ======= GOOGLE SHEET =========
@@ -125,27 +121,17 @@ def run_training_and_forecast():
     print("✅ Đã huấn luyện xong.")
 
 
-@app.route('/weather/predict', methods=['GET'])
-def get_prediction():
-    try:
-        if not os.path.exists("latest_prediction.json"):
-            return jsonify({"error": "❌ File chưa tồn tại"}), 404
-        df = pd.read_json("latest_prediction.json", orient="records")
-        df = df[["time", "temp", "humid", "soil", "wind", "rain"]]
-        return jsonify({"forecast": df.to_dict(orient="records")})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# ======= KHỞI TẠO SCHEDULER =========
-def start_scheduler():
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(run_training_and_forecast, 'interval', minutes=10)
-    scheduler.start()
-    print("🌀 Scheduler đang chạy mỗi 10 phút...")
+# ======= VÒNG LẶP TỰ ĐỘNG =========
+def auto_loop():
+    while True:
+        print(f"🕒 Chạy lúc {datetime.now().strftime('%H:%M:%S %d/%m/%Y')}")
+        try:
+            run_training_and_forecast()
+        except Exception as e:
+            print(f"❌ Lỗi: {e}")
+        print("🛌 Đợi 1 phút\n")
+        time.sleep(60)
 
 
 if __name__ == '__main__':
-    start_scheduler()
-    run_training_and_forecast()  # chạy ngay lần đầu tiên
-    app.run(host='0.0.0.0', port=8080)
+    auto_loop()
