@@ -4,5 +4,4 @@ firebase-admin
 pandas
 numpy
 scikit-learn
-tensorflow==2.12.0
-apscheduler
+tensorflow==2.17.1

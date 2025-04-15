@@ -129,8 +129,8 @@ def auto_loop():
             run_training_and_forecast()
         except Exception as e:
             print(f"❌ Lỗi: {e}")
-        print("🛌 Đợi 1 phút\n")
-        time.sleep(60)
+        print("🛌 Đợi 10 phút\n")
+        time.sleep(600)
 
 
 if __name__ == '__main__':
