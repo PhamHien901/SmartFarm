@@ -6,4 +6,4 @@ numpy
 scikit-learn
 tensorflow==2.16.1
 Flask
-apscheduler
+apschedule
