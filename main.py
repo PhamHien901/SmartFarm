@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 import json
@@ -25,8 +24,8 @@ def index():
 
 def send_onesignal_notification():
     try:
-        onesignal_app_id = os.environ.get("5f24656f-1db1-4b72-8739-f28ed1c77979")
-        onesignal_api_key = os.environ.get("yq5u4ict7umxnywdqx552vp6q")
+        onesignal_app_id = os.environ.get("ONESIGNAL_APP_ID")
+        onesignal_api_key = os.environ.get("ONESIGNAL_API_KEY")
 
         if not onesignal_app_id or not onesignal_api_key:
             print("⚠️ Thiếu thông tin OneSignal.")
@@ -54,12 +53,17 @@ def send_onesignal_notification():
 def run_training_and_forecast():
     print("🔁 Bắt đầu kiểm tra và huấn luyện...")
 
+    # Đọc khóa Google Sheets từ biến môi trường
+    google_key = os.environ.get("GOOGLE_KEY")
+    if not google_key:
+        raise ValueError("❌ GOOGLE_KEY không tồn tại trong biến môi trường.")
+
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    google_key = os.environ.get("D:/MOPHONGPYCHARM/YOLO/DisasterTweetApp/smartfarm-train/focal-grin-455408-m0-c0013e6015d9.json")
     creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(google_key), scope)
     client = gspread.authorize(creds)
 
-    sheet_url = "https://docs.google.com/spreadsheets/d/19qBwHPrIes6PeGAyIzMORPVB-7utQpaZG7RHrdRfoNI"
+    # Đọc dữ liệu từ Google Sheet
+    sheet_url = os.environ.get("SHEET_URL")
     sheet = client.open_by_url(sheet_url)
     worksheet = sheet.worksheet("DATA")
     data = pd.DataFrame(worksheet.get_all_records())
@@ -98,6 +102,7 @@ def run_training_and_forecast():
         model = load_model(model_path, compile=False)
         model.compile(optimizer='adam', loss=MeanSquaredError())
 
+    # Dự báo
     n_steps = 25
     forecast = []
     current_seq = scaled_data[-window_size:].copy()
@@ -115,8 +120,12 @@ def run_training_and_forecast():
     forecast_df.to_json("latest_prediction.json", orient="records", indent=2)
     print("📤 Đã lưu latest_prediction.json")
 
+    # Firebase
+    firebase_key = os.environ.get("FIREBASE_KEY")
+    if not firebase_key:
+        raise ValueError("❌ FIREBASE_KEY không tồn tại trong biến môi trường.")
+    
     if not firebase_admin._apps:
-        firebase_key = os.environ.get("D:/MOPHONGPYCHARM/YOLO/DisasterTweetApp/smartfarm-train/smart-farm-6e42d-firebase-adminsdk-fbsvc-9f6b7c2379.json")
         cred = credentials.Certificate(json.loads(firebase_key))
         firebase_admin.initialize_app(cred, {
             'databaseURL': 'https://smart-farm-6e42d-default-rtdb.firebaseio.com/'
@@ -127,6 +136,7 @@ def run_training_and_forecast():
 
     send_onesignal_notification()
 
+    # Huấn luyện lại nếu có dữ liệu mới
     if saved_timestamp is not None and latest_timestamp <= saved_timestamp:
         print("🟡 Không có dữ liệu mới.")
         return
@@ -152,4 +162,4 @@ if __name__ == '__main__':
     scheduler.start()
     print("🌀 Đang chạy script tự động mỗi 10 phút...")
     run_training_and_forecast()
-    app.run(host="0.0.0.0", port=8080)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
