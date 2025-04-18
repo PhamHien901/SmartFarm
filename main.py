@@ -55,7 +55,7 @@ def run_training_and_forecast():
     print("🔁 Bắt đầu kiểm tra và huấn luyện...")
 
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    google_key = os.environ.get("C:/Users/hieuv/smartfarm-train/focal-grin-455408-m0-c0013e6015d9.json")
+    google_key = os.environ.get("D:/MOPHONGPYCHARM/YOLO/DisasterTweetApp/smartfarm-train/focal-grin-455408-m0-c0013e6015d9.json")
     creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(google_key), scope)
     client = gspread.authorize(creds)
 
@@ -116,7 +116,7 @@ def run_training_and_forecast():
     print("📤 Đã lưu latest_prediction.json")
 
     if not firebase_admin._apps:
-        firebase_key = os.environ.get("C:/Users/hieuv/smartfarm-train/smart-farm-6e42d-firebase-adminsdk-fbsvc-9f6b7c2379.json")
+        firebase_key = os.environ.get("D:/MOPHONGPYCHARM/YOLO/DisasterTweetApp/smartfarm-train/smart-farm-6e42d-firebase-adminsdk-fbsvc-9f6b7c2379.json")
         cred = credentials.Certificate(json.loads(firebase_key))
         firebase_admin.initialize_app(cred, {
             'databaseURL': 'https://smart-farm-6e42d-default-rtdb.firebaseio.com/'
